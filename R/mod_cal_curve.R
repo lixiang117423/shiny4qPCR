@@ -389,15 +389,13 @@ mod_cal_curve_server <- function(id) {
       # 下载结果
       output$dl_table <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-Standard_Curves.txt")
+          paste0(Sys.Date(), "-标曲.xlsx")
         },
         content = function(file) {
-          write.table(r$df_out,
-            file,
-            # col.names = FALSE,
-            row.names = FALSE,
-            sep = "\t",
-            quote = FALSE
+          xlsx::write.xlsx(r$df_out,
+                           file,
+                           # col.names = FALSE,
+                           row.names = FALSE
           )
         }
       )

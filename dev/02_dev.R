@@ -30,6 +30,7 @@ usethis::use_package("multcomp")
 usethis::use_package("broom")
 usethis::use_package("readxl")
 usethis::use_package("reshape2")
+usethis::use_package("xlsx")
 usethis::use_dev_package("pac4xiang", remote = "github::lixiang117423/pac4xiang")
 
 ## Add modules ----
