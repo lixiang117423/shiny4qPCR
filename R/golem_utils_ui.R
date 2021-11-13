@@ -375,6 +375,169 @@ make_action_button <- function(tag, inputId = NULL) {
   tag
 }
 
+# 添加多组t检验函数
+#' @name multGroupTtest
+#' @author Xiang LI <lixiang117423@@foxmail.com>
+#'
+#' @title Multiple Group Student's-test.
+#' @description
+#' \code{multGroupTtest} Multiple Group Student's-test.
+#'
+#' @importFrom magrittr %>%
+#' @importFrom data.table fread
+#' @importFrom stringr str_sub str_split
+#' @importFrom dplyr select filter mutate group_by ungroup all_of
+#' @importFrom stats t.test
+#' @export
+#'
+#' @return Return a datafram
+#'
+multGroupTtest <- function(data, group1, group2, CK, value, level) {
+  data  %>%
+    dplyr::rename(
+      first.group = all_of(group1),
+      second.group = all_of(group2),
+      value = all_of(value)
+    ) %>%
+    dplyr::mutate(second.group = factor(second.group, levels = c(unique(second.group)))) %>%
+    dplyr::mutate(group.temp = paste0(first.group, second.group)) -> df
+  
+  ttest.results <- NULL
+  
+  for (i in unique(df$first.group)) {
+    df.sub <- df %>% dplyr::filter(first.group == i)
+    
+    df.sub.ck <- df.sub %>% dplyr::filter(second.group == CK)
+    df.sub.2 <- df.sub %>% dplyr::filter(second.group != CK)
+    
+    df.sub.ck$pvalue.ttest <- ''
+    df.sub.ck$signif.ttest <- ''
+    
+    ttest.results <- rbind(ttest.results, df.sub.ck)
+    
+    for (j in unique(df.sub.2$second.group)) {
+      df.sub.3 <- df.sub.2 %>% dplyr::filter(second.group == j)
+      
+      df.sub.ck.2 = df.sub.ck %>% dplyr::select(1:(ncol(df.sub.ck)-2))
+      
+      df.sub.4 <- rbind(df.sub.ck.2, df.sub.3)
+      
+      if (dim(df.sub.4)[1] == 0) {
+        next
+      } else if (length(unique(df.sub.4$second.group)) == 1) {
+        next
+      } else {
+        df.sub.4$second.group <- factor(df.sub.4$second.group, levels = unique(df.sub.4$second.group))
+        
+        fit <- t.test(value ~ second.group, data = df.sub.4, conf.level = level)
+        
+        pvalue.ttest <- fit$p.value
+        
+        signif.ttest <- ifelse(pvalue.ttest < 0.001, "***",
+                               ifelse(pvalue.ttest < 0.01 & pvalue.ttest > 0.001, "**",
+                                      ifelse(pvalue.ttest > 0.05, "NS", "*")
+                               )
+        )
+        
+        df.sub.3$pvalue.ttest <- as.character(pvalue.ttest)
+        df.sub.3$signif.ttest <- signif.ttest
+        
+        ttest.results <- rbind(ttest.results, df.sub.3)
+      }
+    }
+  }
+  
+  ttest.results <- ttest.results %>%
+    dplyr::select(first.group, second.group, pvalue.ttest, signif.ttest) %>%
+    dplyr::mutate(temp = paste0(first.group, second.group)) %>%
+    ungroup()
+  
+  ttest.results <- ttest.results[!duplicated(ttest.results$temp), ] %>%
+    dplyr::select(-temp) %>%
+    dplyr::select(first.group, second.group, pvalue.ttest, signif.ttest) %>%
+    dplyr::mutate(second.group = as.character(second.group))
+  
+  colnames(ttest.results)[1:2] <- c(group1, group2)
+  
+  ttest.results <- ttest.results %>%
+    ungroup()
+  
+  return(ttest.results)
+}
+
+
+# 批量方差分析函数
+#' @name mult.aov
+#' @author Xiang LI <lixiang117423@@foxmail.com>
+#'
+#' @title Multiple Group Anova.
+#' @description
+#' \code{mult.aov} Multiple Group Anova.
+#'
+#' @importFrom magrittr %>%
+#' @importFrom data.table fread
+#' @importFrom stringr str_sub str_split
+#' @importFrom dplyr select filter mutate group_by ungroup all_of
+#' @importFrom stats aov
+#' @importFrom multcomp mcp cld glht
+#'
+#'
+#' @export
+#'
+#' @return Return a datafram
+#'
+# 批量Anova
+mult.aov <- function(data, group1, group2, value, level) {
+  data %>%
+    dplyr::rename(
+      first.group = all_of(group1),
+      second.group = all_of(group2),
+      value = all_of(value)
+    ) %>%
+    dplyr::mutate(second.group = factor(second.group, levels = c(unique(second.group)))) %>%
+    dplyr::mutate(group.temp = paste0(first.group, second.group)) -> df
+  
+  
+  aov.results <- NULL
+  
+  for (i in unique(df$first.group)) {
+    df %>%
+      dplyr::filter(first.group == i) -> df.temp
+    
+    fit <- aov(value ~ second.group, data = df.temp)
+    
+    
+    tuk <- glht(fit, linfct = mcp(second.group = "Tukey"))
+    sig <- cld(tuk,
+               level = ifelse(level != 0.95, level, 0.95),
+               decreasing = TRUE
+    )[["mcletters"]][["Letters"]] %>%
+      as.data.frame()
+    
+    colnames(sig) <- "signif"
+    sig %>%
+      dplyr::mutate(
+        first.group = i,
+        second.group = rownames(.),
+        anova.p.value = summary(fit)[[1]][["Pr(>F)"]][1]
+      ) %>%
+      dplyr::select(first.group, second.group, anova.p.value, signif) -> sig.temp
+    
+    aov.results <- rbind(aov.results, sig.temp)
+  }
+  
+  aov.results %>%
+    dplyr::mutate(group.temp = paste0(first.group, second.group)) %>%
+    dplyr::select(group.temp, anova.p.value, signif) -> aov.results
+  
+  df <- merge(df, aov.results, by = "group.temp", all.x = TRUE) %>%
+    dplyr::select(first.group, second.group, value, anova.p.value, signif)
+  
+  colnames(df)[1:3] <- c(group1, group2, value)
+  
+  return(df)
+}
+
 
 # UNCOMMENT AND USE 
 # 

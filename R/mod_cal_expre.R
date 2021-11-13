@@ -107,7 +107,7 @@ mod_cal_expre_ui <- function(id) {
 #' @importFrom readxl read_excel
 #' @importFrom shiny NS tagList renderDataTable downloadHandler
 #' @importFrom magrittr %>%
-#' @importFrom dplyr select mutate rename filter group_by ungroup
+#' @importFrom dplyr select mutate rename filter group_by ungroup n
 #' @importFrom stringr str_sub
 #' @importFrom reshape2 melt
 #' @importFrom xlsx write.xlsx
@@ -237,7 +237,7 @@ mod_cal_expre_server <- function(id) {
           dplyr::mutate(group = paste0(Treatment, Gene)) %>%
           dplyr::group_by(group) %>%
           dplyr::mutate(
-            N = n(),
+            N = dplyr::n(),
             Mean = mean(Cq),
             SD = sd(Cq),
             SE = SD / sqrt(N),
@@ -277,13 +277,12 @@ mod_cal_expre_server <- function(id) {
     })
     
     # 下载结果
-    # 下载结果
     output$dl_table <- downloadHandler(
       filename = function() {
-        paste0(Sys.Date(), "-表达量.xlsx")
+        paste0(Sys.Date(), "-表达量(标曲法).xlsx")
       },
       content = function(file) {
-        xlsx::write.xlsx(r$df_out,
+        xlsx::write.xlsx(as.data.frame(r$df_out),
                          file,
                          # col.names = FALSE,
                          row.names = FALSE

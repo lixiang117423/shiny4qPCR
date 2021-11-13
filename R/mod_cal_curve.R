@@ -157,7 +157,7 @@ mod_cal_curve_ui <- function(id) {
 #' @importFrom stringr str_sub
 #' @importFrom reshape2 melt 
 #' @importFrom broom glance
-#' @importFrom ggplot2 ggplot geom_smooth geom_point facet_wrap labs ggsave
+#' @importFrom ggplot2 ggplot geom_smooth geom_point facet_wrap labs ggsave aes
 #' @importFrom ggplot2 scale_y_continuous  scale_x_continuous theme_bw theme
 #' @importFrom ggpmisc stat_poly_eq 
 mod_cal_curve_server <- function(id) {
@@ -348,15 +348,15 @@ mod_cal_curve_server <- function(id) {
 
       # 绘图
       # 绘图
-      r$plot_out <- ggplot(df.final, aes(mean, Conc, fill = Gene)) +
-        geom_smooth(
+      r$plot_out <- ggplot2::ggplot(df.final, ggplot2::aes(mean, Conc, fill = Gene)) +
+        ggplot2::geom_smooth(
           formula = y ~ x,
           method = "lm",
           se = TRUE, colour = "black", span = 0.8
         ) +
-        geom_point() +
-        facet_wrap(. ~ Gene, ncol = 2) +
-        stat_poly_eq(aes(label = paste(..eq.label..,
+        ggplot2::geom_point() +
+        ggplot2::facet_wrap(. ~ Gene, ncol = 2) +
+        ggpmisc::stat_poly_eq(ggplot2::aes(label = paste(..eq.label..,
           ..rr.label..,
           ..p.value.label..,
           sep = "~~~~"
@@ -368,20 +368,20 @@ mod_cal_curve_server <- function(id) {
         label.x = c(0.05),
         label.y = c(0.03)
         ) +
-        labs(y = "Relative.Conc (log2)", x = "Cq") +
-        scale_y_continuous(breaks = round(seq(
+        ggplot2::labs(y = "Relative.Conc (log2)", x = "Cq") +
+        ggplot2::scale_y_continuous(breaks = round(seq(
           min(df.final$Conc),
           max(df.final$Conc), 1
         ), 2)) +
-        scale_x_continuous(breaks = round(seq(
+        ggplot2::scale_x_continuous(breaks = round(seq(
           min(df.final$mean),
           max(df.final$mean) + 1, 1
         ), 1)) +
-        theme_bw() +
-        theme(legend.position = "none")
+        ggplot2::theme_bw() +
+        ggplot2::theme(legend.position = "none")
 
       # 展示结果
-      output$preview <- shiny::renderDataTable({
+      output$preview <- shiny::renderDataTable(options = list(pageLength = 6),{
         r$df_out %>%
           dplyr::select(1:6)
       })
@@ -406,7 +406,7 @@ mod_cal_curve_server <- function(id) {
           paste0(Sys.Date(), "-Standard_Curves.", input$figtype)
         },
         content = function(file) {
-          ggsave(file, r$plot_out, device = input$figtype, width = 12, height = 8)
+          ggplot2::ggsave(file, r$plot_out, device = input$figtype, width = 12, height = 8)
         }
       )
     })

@@ -22,8 +22,10 @@ app_ui <- function(request) {
           "rever_trans" = "反转录计算",
           "show_cq" = "展示Cq值",
           "cal_curve" = "计算标曲",
-          "cal_expre" = "计算表达量",
-          "visualization" = "可视化",
+          "cal_expre" = "计算表达量(标曲法)",
+          "cal_expre_ddct" = "计算表达量(2^-ΔΔCt法)",
+          "stat" = "差异表达统计",
+          #"visualization" = "数据可视化",
           "about" = "About"
         )
       ),
@@ -52,6 +54,16 @@ app_ui <- function(request) {
         ),
         fluidRow(
           id = "cal_expre", mod_cal_expre_ui("cal_expre")
+        ) %>% tagAppendAttributes(
+          style = "display::nline-block"
+        ),
+        fluidRow(
+          id = "cal_expre_ddct", mod_cal_expre_ddct_ui("cal_expre_ddct")
+        ) %>% tagAppendAttributes(
+          style = "display::nline-block"
+        ),
+        fluidRow(
+          id = "stat", mod_stat_ui("stat")
         ) %>% tagAppendAttributes(
           style = "display::nline-block"
         ),
