@@ -115,13 +115,15 @@ mod_cal_expre_ddct_server <- function(id) {
       df_user_exp = NULL,
       df_user_design_treat = NULL,
       df_user_design_gene = NULL,
-      df_out = NULL
+      df_out = NULL,
+      df_out_2 = NULL,
+      df_list = NULL
     )
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量计算示例数据.xlsx",
+      filename = "表达量计算示例数据_2-ΔΔCt法.xlsx",
       content = function(file) {
-        file.copy("./data/表达量计算示例数据.xlsx", file)
+        file.copy("./data/表达量计算示例数据_2-ΔΔCt法.xlsx", file)
       }
     )
 
@@ -137,7 +139,8 @@ mod_cal_expre_ddct_server <- function(id) {
           P = stringr::str_sub(Position, 1, 1),
           N = as.numeric(stringr::str_sub(Position, 2, nchar(Position)))
         ) %>%
-        dplyr::select(N, P, Cq, Position, Batch)
+        dplyr::select(N, P, Cq, Position, Batch) %>% 
+        dplyr::mutate(temp = paste0(Position, Batch))
 
       # 读入处理矩阵
       r$df_user_design_treat <- readxl::read_excel(
@@ -147,7 +150,8 @@ mod_cal_expre_ddct_server <- function(id) {
         reshape2::melt(id.vars = 1:2) %>%
         dplyr::mutate(Position = paste0(N, variable)) %>%
         dplyr::rename(Treatment = value) %>%
-        dplyr::select(Position, Treatment, Batch)
+        dplyr::select(Position, Treatment, Batch) %>% 
+        dplyr::mutate(temp = paste0(Position, Batch))
 
       # 读入基因矩阵
       r$df_user_design_gene <- readxl::read_excel(
@@ -157,50 +161,66 @@ mod_cal_expre_ddct_server <- function(id) {
         reshape2::melt(id.vars = 1:2) %>%
         dplyr::mutate(Position = paste0(N, variable)) %>%
         dplyr::rename(Gene = value) %>%
-        dplyr::select(Position, Gene, Batch)
+        dplyr::select(Position, Gene, Batch) %>% 
+        dplyr::mutate(temp = paste0(Position, Batch))
 
       # 开始计算
-      df <- merge(r$df_user_exp, r$df_user_design_treat, by = "Position") %>%
-        merge(r$df_user_design_gene, by = "Position")
+      df <- merge(r$df_user_exp, r$df_user_design_treat, by = "temp") %>%
+        merge(r$df_user_design_gene, by = "temp")
+      
+    
+      # 填充空值
+      df %>% dplyr::mutate(group = paste0(Treatment, Gene, Batch)) -> df
+      
+      df_new <- NULL
+
+      for (i in unique(df$group)) {
+        df_temp <- df %>%
+          dplyr::filter(group == i) %>%
+          fill_NA(value = "Cq", fill.by = input$fillNA)
+        df_new <- rbind(df_new, df_temp)
+      }
+      
+      df <- df_new
 
       # 先提取对照处理
       df_ck_treatment <- df %>%
         dplyr::filter(Treatment == input$reftreatment)
-
+      
       # 计算对照的内参基因的均值
       df_ck_refgene_mean <- df_ck_treatment %>%
         dplyr::filter(Gene == input$refgene) %>%
         dplyr::select(Cq)
-
-
+      
+      
       # 提取所有处理
       all_treatment <- unique(df$Treatment) %>% setdiff(input$reftreatment)
       # 提取所有目的基因
       all_gene <- unique(df$Gene) %>% setdiff(input$refgene)
-
+      
       r$df_out <- NULL
-
+      
       for (treat in all_treatment) {
-
+        
         # 按照内参进行循环计算
         for (gene in all_gene) {
           # 计算对照的目的基因的均值
           df_ck_target_gene_mean <- df_ck_treatment %>%
             dplyr::filter(Gene == gene) %>%
             dplyr::select(Cq)
-
+          
           dt2 <- mean(df_ck_target_gene_mean$Cq) - mean(df_ck_refgene_mean$Cq)
-
+          
           # 选择目的基因,处理的内参基因和目的基因
           df_target_gene <- df %>%
             dplyr::filter(Treatment == treat) %>%
             dplyr::filter(Gene == c(gene, input$refgene))
-
+          
           # 计算处理的内参的均值
           df_target_gene_refgene_mean <- df_target_gene %>%
             dplyr::filter(Gene == input$refgene) %>%
             dplyr::select(Cq)
-
+          
           # 处理的目的基因的表达量
           df_treatment_target_gene <- df_target_gene %>%
             dplyr::filter(Gene == gene) %>%
@@ -209,7 +229,7 @@ mod_cal_expre_ddct_server <- function(id) {
               dt2 = dt2,
               Expression = 2^(-(dt1 - dt2))
             )
-
+          
           # 计算CK的目的基因的表达量
           df_ck_target_gene <- df_ck_treatment %>%
             dplyr::filter(Gene == gene) %>%
@@ -218,7 +238,7 @@ mod_cal_expre_ddct_server <- function(id) {
               dt2 = dt2,
               Expression = 2^(-(dt1 - dt2))
             )
-
+          
           df_target_expre <- rbind(df_treatment_target_gene, df_ck_target_gene) %>%
             dplyr::select(Treatment, Gene, Cq, Expression) %>%
             dplyr::group_by(Treatment) %>%
@@ -228,15 +248,23 @@ mod_cal_expre_ddct_server <- function(id) {
               SD = sd(Expression),
               SE = SD / sqrt(N)
             )
-
+          
           r$df_out <- rbind(r$df_out, df_target_expre)
         }
       }
+      
+      r$df_out_2 <- r$df_out %>% 
+        dplyr::mutate(temp = paste0(Treatment, Gene))
+        
+        
+      r$df_out_2 <- r$df_out_2[!duplicated(r$df_out_2$temp),] %>% 
+        dplyr::select(-Cq, -temp)
+      
+      r$df_list <- list("平均值表达量" = r$df_out_2, "原始表达量" = r$df_out)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
-        r$df_out %>%
-          dplyr::select(Treatment, Gene, Cq, Expression)
+        r$df_out_2
       })
     })
 
@@ -246,11 +274,7 @@ mod_cal_expre_ddct_server <- function(id) {
         paste0(Sys.Date(), "-表达量(2^-ΔΔCt法).xlsx")
       },
       content = function(file) {
-        xlsx::write.xlsx(as.data.frame(r$df_out),
-          file,
-          # col.names = FALSE,
-          row.names = FALSE
-        )
+        openxlsx::write.xlsx(r$df_list, file)
       }
     )
   })

@@ -47,6 +47,8 @@ nav_item <- function(label, id){
       onclick = glue::glue(
         '$( "a.nav-link" ).removeClass("active");
         $( this ).addClass("active");
+        $("ul").find("li").removeClass("nav-item-li");
+        $(this).parent().addClass("nav-item-li");
         $( ".row" ).hide();
         $( "#{id}" ).show();
         $( "#{id}" ).trigger("show");
@@ -56,3 +58,9 @@ nav_item <- function(label, id){
     )
   )
 }
+
+
+
+
+
+

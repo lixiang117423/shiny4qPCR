@@ -177,7 +177,7 @@ mod_cal_curve_server <- function(id) {
     output$dl_demo <- downloadHandler(
       filename = "标曲计算示例数据.xlsx",
       content = function(file) {
-        file.copy("./data/StandardCurve_demo.xlsx", file)
+        file.copy("./data/标曲计算示例数据.xlsx", file)
       }
     )
 

@@ -24,6 +24,19 @@ mod_stat_ui <- function(id) {
       downloadLink(ns("dl_demo"),
         label = h6("下载示例数据")
       ),
+      # sheet index
+      selectInput(
+        ns("sheetindex"),
+        label = h6("第几个Sheet"),
+        choices = list(
+          "1" = 1,
+          "2" = 2,
+          "3" = 3,
+          "4" = 4,
+          "5" = 5
+        ),
+        selected = "2"
+      ),
       # 输入对照处理
       textInput(
         ns("reftreatment"),
@@ -50,6 +63,40 @@ mod_stat_ui <- function(id) {
         ),
         selected = 0.95
       ),
+      if (FALSE) {
+        # 是否绘图
+        selectInput(
+          ns('plot'),
+          label = h6("是否绘图"),
+          choices = list(
+            "是" = "yes",
+            "否" = "no"
+          ),
+          selected = "是"
+        )
+        # 选择绘图样式
+        selectInput(
+          ns("type"),
+          label = h6("选择绘图样式"),
+          choices = list(
+            "箱线图" = "box",
+            "柱状图" = "bar",
+            "小提琴图" = "violin"
+            #"热图" = "heatmap"
+          ),
+          selected = "box"
+        )
+        # 是否加上散点
+        selectInput(
+          ns("point"),
+          label = h6("是否添加散点"),
+          choices = list(
+            "是" = "yes",
+            "否" = "no"
+          ),
+          selected = "yes"
+        )
+      },
       # 提交按钮
       col_12(
         actionButton(
@@ -100,13 +147,15 @@ mod_stat_server <- function(id) {
     # 预设返回值
     r <- rv(
       df_user_exp = NULL,
-      df_out = NULL
+      df_out = NULL,
+      plot = NULL,
+      df_out_2 = NULL
     )
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量差异统计示例数据.xlsx",
+      filename = "表达量差异统计分析示例数据.xlsx",
       content = function(file) {
-        file.copy("./data/表达量差异统计示例数据.xlsx", file)
+        file.copy("./data/表达量差异统计分析示例数据.xlsx", file)
       }
     )
 
@@ -114,7 +163,7 @@ mod_stat_server <- function(id) {
       # 读入用户数据
       r$df_user_exp <- readxl::read_excel(
         input$uploadfile$datapath,
-        sheet = 1
+        sheet = as.numeric(input$sheetindex)
       )
 
       if (input$method == "ttest") {
@@ -143,11 +192,66 @@ mod_stat_server <- function(id) {
 
       r$df_out <- res
       colnames(r$df_out) <- c("Gene", "Treatment", "Pvalue", "Significance")
+      
+      # 合并输入数据和统计检验结果
+      df_temp <- r$df_out %>% dplyr::mutate(temp = paste0(Gene,Treatment)) %>% 
+        dplyr::select(temp, Significance)
+      
+      r$df_user_exp %>% 
+        dplyr::mutate(temp = paste0(Gene,Treatment)) %>% 
+        merge(df_temp, by = "temp", all.x = TRUE) %>% 
+        dplyr::group_by(temp) %>% 
+        dplyr::mutate(max = max(Expression)) %>% 
+        dplyr::ungroup() %>% 
+        dplyr::select(-temp,-max) %>% 
+        dplyr::select(Treatment,	Gene,	Cq,	Expression,	N,Mean,	SD,	SE, Significance)-> r$df_out_2
+      
+      
+      r$df_out <- r$df_out_2 %>% 
+        dplyr::mutate(temp = paste0(Gene,Treatment))
+      
+      r$df_out <- r$df_out[!duplicated(r$df_out$temp),] %>% 
+        dplyr::select(Treatment,	Gene,	N,	Mean,	SD,	SE, Significance)
+      
+        
+      # 绘图
+      if(F){
+        if (input$plot == "yes") {
+          r$plot <- ggplot2::ggplot(df_plot, ggplot2::aes(Treatment, Expression))
+          # 选择绘图方式
+          if (input$type == "box") {
+            r$plot <- r$plot + ggplot2::geom_boxplot(ggplot2::aes(fill = Treatmen)) # 箱线图
+          }else if (input$type == "bar") {
+            r$plot <- r$plot + ggplot2::geom_bar(ggplot2::aes(fill = Treatmen)) +
+              ggplot2::geom_errorbar(ggplot2::aes(x = Treatment, ymin = Mean - SD, ymax = MEan + SD), width = 0.2)# 柱状图
+          }else {
+            r$plot <- r$plot + ggplot2::geom_violin(ggplot2::aes(fill = Treatmen)) # 小提琴图
+          }
+          
+          # 是否画上散点
+          if (input$point == "yes") {
+            r$plot <- r$plot + ggplot2::geom_jitter(size = 1.2, width = 0.1)
+          }else{
+            r$plot <- r$plot
+          }
+          
+          r$plot <- r$plot + 
+            scale_fill_aaas() +
+            theme_bw()
+          
+        }else{
+          r$plot <- NULL
+        }
+      }
+      
+      df_list <- list("平均值+统计结果" = r$df_out, "原始数据+统计结果" = r$df_out_2)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
         r$df_out
       })
+      
+      
 
       # 下载结果
       output$dl_table <- downloadHandler(
@@ -155,11 +259,7 @@ mod_stat_server <- function(id) {
           paste0(Sys.Date(), "-统计检验结果.xlsx")
         },
         content = function(file) {
-          xlsx::write.xlsx(as.data.frame(r$df_out),
-            file,
-            # col.names = FALSE,
-            row.names = FALSE
-          )
+          openxlsx::write.xlsx(df_list, file)
         }
       )
     })

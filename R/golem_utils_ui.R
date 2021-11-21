@@ -450,7 +450,7 @@ multGroupTtest <- function(data, group1, group2, CK, value, level) {
   ttest.results <- ttest.results %>%
     dplyr::select(first.group, second.group, pvalue.ttest, signif.ttest) %>%
     dplyr::mutate(temp = paste0(first.group, second.group)) %>%
-    ungroup()
+    dplyr::ungroup()
   
   ttest.results <- ttest.results[!duplicated(ttest.results$temp), ] %>%
     dplyr::select(-temp) %>%
@@ -460,7 +460,7 @@ multGroupTtest <- function(data, group1, group2, CK, value, level) {
   colnames(ttest.results)[1:2] <- c(group1, group2)
   
   ttest.results <- ttest.results %>%
-    ungroup()
+    dplyr::ungroup()
   
   return(ttest.results)
 }
@@ -535,6 +535,42 @@ mult.aov <- function(data, group1, group2, value, level) {
   
   colnames(df)[1:3] <- c(group1, group2, value)
   
+  return(df)
+}
+
+# 过滤空值
+fill_NA <- function(data, value, fill.by) {
+
+  for (i in 1:length(data$Cq)) {
+    data$group_fill_NA[i] <- ifelse(data$Cq[i] == "-", "yes",
+      ifelse(is.na(data$Cq[i]) == TRUE, "yes", "no")
+    )
+  }
+
+  df.na <- data %>% dplyr::filter(group_fill_NA == "yes")
+  df.nona <- data %>%
+    dplyr::filter(group_fill_NA == "no") %>%
+    dplyr::mutate(
+      Cq = as.numeric(Cq),
+      max = max(Cq),
+      mean = mean(Cq)
+    )
+  
+  if (dim(df.na)[1] != 0) {
+    if (fill.by == "max") {
+      df.na$Cq <- mean(df.nona$max)
+    } else {
+      df.na$Cq <- mean(df.nona$mean)
+    }
+    
+    df.na <- df.na %>% dplyr::select(-group_fill_NA)
+    df.nona <- df.nona %>% dplyr::select(-group_fill_NA, -mean, -max)
+    
+    df <- rbind(df.na, df.nona)
+  }else{
+    df <- df.nona %>% dplyr::select(-group_fill_NA, -mean, -max)
+  }
+
   return(df)
 }
 

@@ -120,14 +120,16 @@ mod_cal_expre_server <- function(id) {
       df_user_design_treat = NULL,
       df_user_design_gene = NULL,
       df_user_sd = NULL,
-      df_out = NULL
+      df_out = NULL,
+      df_out_2 = NULL,
+      df_lit = NULL
     )
 
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量计算示例数据.xlsx",
+      filename = "表达量计算示例数据_标曲法.xlsx",
       content = function(file) {
-        file.copy("./data/表达量计算示例数据.xlsx", file)
+        file.copy("./data/表达量计算示例数据_标曲法.xlsx", file)
       }
     )
 
@@ -183,6 +185,20 @@ mod_cal_expre_server <- function(id) {
         df <- merge(r$df_user_exp, r$df_user_design_treat, by = "Position") %>%
           merge(r$df_user_design_gene, by = "Position") %>%
           dplyr::mutate(group = paste0(Gene, "-", Treatment))
+        
+        # 填充空值
+        df %>% dplyr::mutate(group = paste0(Treatment, Gene, Batch)) -> df
+        
+        df_new <- NULL
+        
+        for (i in unique(df$group)) {
+          df_temp <- df %>%
+            dplyr::filter(group == i) %>%
+            fill_NA(value = "Cq", fill.by = input$fillNA)
+          df_new <- rbind(df_new, df_temp)
+        }
+        
+        df <- df_new
         
         df.3 <- df %>%
           dplyr::filter(Cq == "-") %>%
@@ -264,15 +280,46 @@ mod_cal_expre_server <- function(id) {
         r$df_out <- merge(r$df_out, df_rengene, by = "Treatment") %>% 
           dplyr::mutate(Corrected_expressions =  Expression / mean_ref) %>% 
           dplyr::select(-mean_ref) %>% 
-          dplyr::select(Treatment, Gene, Cq, N, Mean, SD, SE, 
+          dplyr::select(Treatment, Gene, Cq, N, SD, SE, 
                         Formula, R2, P.value, Expression,
-                        Corrected_expressions, Date)
+                        Corrected_expressions, Date) %>% 
+          dplyr::mutate(temp = paste0(Treatment, Gene)) %>% 
+          dplyr::group_by(temp) %>% 
+          dplyr::mutate(Mean = mean(Corrected_expressions)) %>% 
+          dplyr::ungroup() %>% 
+          dplyr::select(Treatment, Gene, Cq, Mean, N, SD, SE, 
+                        Formula, R2, P.value,
+                        Corrected_expressions, Date, temp) %>% 
+          dplyr::rename(Expression = Corrected_expressions)
+        
+        r$df_out_2 <- r$df_out %>%
+          dplyr::select(temp,Treatment, Gene, Cq, N, Mean, SD, SE, 
+                        Formula, R2, P.value) 
+        
+        r$df_out <- r$df_out %>% 
+          dplyr::select(-temp)
+        
+      }else{
+        r$df_out <- r$df_out 
+        
+        r$df_out_2 <- r$df_out %>% 
+          dplyr::mutate(temp = paste0(Treatment, Gene)) %>% 
+          dplyr::group_by(temp) %>% 
+          dplyr::mutate(Mean = mean(Expression)) %>% 
+          dplyr::ungroup() %>% 
+          dplyr::select(temp,Treatment, Gene, Cq,N, Mean, SD, SE, 
+                        Formula, R2, P.value)
       }
+
+      r$df_out_2 <- r$df_out_2[!duplicated(r$df_out_2$temp),] %>% 
+        dplyr::select(-temp)
+      
+      
+      r$df_list <- list("平均值表达量" = r$df_out_2, "原始表达量" = r$df_out)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
-        r$df_out %>%
-          dplyr::select(-Formula, -Date)
+        r$df_out_2
       })
     })
     
@@ -282,11 +329,7 @@ mod_cal_expre_server <- function(id) {
         paste0(Sys.Date(), "-表达量(标曲法).xlsx")
       },
       content = function(file) {
-        xlsx::write.xlsx(as.data.frame(r$df_out),
-                         file,
-                         # col.names = FALSE,
-                         row.names = FALSE
-        )
+        openxlsx::write.xlsx(r$df_list, file)
       }
     )
   })

@@ -17,7 +17,6 @@ Imports:
     htmltools,
     magrittr,
     multcomp,
-    pac4xiang (>= 0.1.1),
     processx,
     readxl,
     reshape2,

@@ -20,7 +20,7 @@ app_ui <- function(request) {
         c(
           "home" = "首页",
           "rever_trans" = "反转录计算",
-          "show_cq" = "展示Cq值",
+          #"show_cq" = "展示Cq值",
           "cal_curve" = "计算标曲",
           "cal_expre" = "计算表达量(标曲法)",
           "cal_expre_ddct" = "计算表达量(2^-ΔΔCt法)",

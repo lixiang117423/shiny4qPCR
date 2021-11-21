@@ -85,9 +85,9 @@ mod_rever_trans_server <- function(id){
     
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "反转录体积计算模拟数据.xlsx",
+      filename = "反转录计算示例数据.tsv",
       content = function(file) {
-        file.copy("./data/反转录体积计算模拟数据.xlsx", file)
+        file.copy("./data/反转录计算示例数据.tsv", file)
       }
     )
     
