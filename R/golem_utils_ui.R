@@ -574,6 +574,36 @@ fill_NA <- function(data, value, fill.by) {
   return(df)
 }
 
+# RqPCR里面的方法
+geometric.mean <- function(x) {
+  x <- x[!is.na(x)]
+  if (any(x < 0)) {
+    stop("'x' contains negative value(s)")
+  } else {
+    return(prod(x)^(1 / length(x)))
+  }
+}
+
+# 计算稳定值
+gene.stable<- function(data, na.rm = TRUE){
+  if(!is.data.frame(data) & !is.matrix(data))
+    stop("'data' has to of class matrix or data.frame")
+  n <- ncol(data)
+  if(n == 1) stop("you need at least two genes for this computation")
+  M <- numeric(n)
+  for(j in 1:n){
+    A <- log2(data[,j]/data[,-j])
+    if(n > 2)
+      M[j] <- mean(apply(A, 2, sd, na.rm = na.rm))
+    else
+      M[j] <- sd(A, na.rm = na.rm)
+  }
+  if(is.data.frame(data))
+    names(M) <- names(data)
+  else
+    names(M) <- colnames(data)
+  return(M)
+}
 
 # UNCOMMENT AND USE 
 # 

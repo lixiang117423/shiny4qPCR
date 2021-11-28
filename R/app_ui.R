@@ -24,6 +24,7 @@ app_ui <- function(request) {
           "cal_curve" = "计算标曲",
           "cal_expre" = "计算表达量(标曲法)",
           "cal_expre_ddct" = "计算表达量(2^-ΔΔCt法)",
+          "cal_expre_RqPCR" = "计算表达量(RqPCR法)",
           "stat" = "差异表达统计",
           #"visualization" = "数据可视化",
           "about" = "About"
@@ -59,6 +60,11 @@ app_ui <- function(request) {
         ),
         fluidRow(
           id = "cal_expre_ddct", mod_cal_expre_ddct_ui("cal_expre_ddct")
+        ) %>% tagAppendAttributes(
+          style = "display::nline-block"
+        ),
+        fluidRow(
+          id = "cal_expre_RqPCR", mod_cal_expre_RqPCR_ui("cal_expre_RqPCR")
         ) %>% tagAppendAttributes(
           style = "display::nline-block"
         ),
