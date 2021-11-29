@@ -605,6 +605,140 @@ gene.stable<- function(data, na.rm = TRUE){
   return(M)
 }
 
+# fasta转换成df
+fasta2df <- function(fasta) {
+  
+  df.seq <-  fasta %>% na.omit()
+  
+  seq.num <- c()
+  
+  for (i in 1:nrow(df.seq)) {
+    if (stringr::str_sub(df.seq$V1[i], 1, 1) == ">") {
+      seq.num <- c(seq.num, i)
+    }
+  }
+  
+  df.temp <- seq.num %>% as.data.frame()
+  
+  colnames(df.temp)[1] <- "v1"
+  
+  df.temp <- df.temp %>%
+    dplyr::mutate(
+      start = v1 + 1,
+      end = v1 - 1
+    )
+  
+  seq.info <- as.data.frame(df.seq[df.temp$v1, ]) %>% dplyr::mutate(seq = " ")
+  
+  for (i in 1:nrow(df.temp)) {
+    start <- df.temp$start[i]
+    
+    if (i == nrow(df.temp)) {
+      end <- nrow(df.seq)
+    } else {
+      end <- df.temp$end[i + 1]
+    }
+    
+    seq.temp <- ""
+    
+    for (j in start:end) {
+      seq.temp <- paste0(seq.temp, df.seq$V1[j])
+    }
+    seq.info$seq[i] <- seq.temp
+  }
+  
+  colnames(seq.info)[1] <- "id"
+  
+  return(seq.info)
+}
+
+# 从primer3输出结果提取结果
+get_res_from_primer3 <- function(data){
+  df <- data.table::fread(file = data, header = FALSE, sep = "\n") %>%
+    dplyr::mutate(num = "")
+  
+  res_final <- NULL
+  
+  cat <- which(df$V1 == "=")
+  
+  for (i in 1:nrow(df)) {
+    df$num[i] <- stringr::str_split(df$V1[i], "_")[[1]][3]
+  }
+  
+  # 按不同基因
+  for (i in 1:length(cat)) {
+    if (i == 1) {
+      df1 <- df[1:(cat[i] - 1), ]
+    }else {
+      df1 <- df[(cat[i-1] + 1):(cat[i] - 1), ]
+    }
+    
+    
+    seq_name <- stringr::str_split(df1$V1[1], "=")[[1]][2]
+    seq_input <- stringr::str_split(df1$V1[2], "=")[[1]][2]
+    
+    
+    df2 <- df1[19:nrow(df1), ] %>%
+      dplyr::mutate(temp = "")
+    
+    for (j in 1:nrow(df2)) {
+      df2$temp[j] <- ifelse(sjmisc::str_contains(df2$num[j], "="), 1, 0)
+    }
+    
+    for (k in 1:nrow(df2)) {
+      df2$num[k] <- ifelse(df2$temp[k] == 1, stringr::str_split(df2$num[k], "=")[[1]][1], df2$num[k])
+    }
+    
+    # 按不同的引物
+    for (m in unique(df2$num)) {
+      df_temp <- df2 %>% dplyr::filter(num == m)
+      
+      res_temp <- matrix(ncol = 16, nrow = 2)
+      colnames(res_temp) <- c(
+        "seq-name", "seq", "primer_num", "PENALTY", "COMPL_ANY_TH", "COMPL_END_TH",
+        "PRODUCT_SIZE", "PRODUCT_TM", "primer-seq", "P-PENALTY", "TM",
+        "GC", "SELF_ANY_TH", "SELF_END_TH", "HAIRPIN_TH", "END_STABILITY"
+      )
+      
+      res_temp[, 1] <- seq_name
+      res_temp[, 2] <- seq_input
+      res_temp[1, 3] <- paste0(seq_name, "_", as.character(as.numeric(m) + 1), "_F")
+      res_temp[2, 3] <- paste0(seq_name, "_", as.character(as.numeric(m) + 1), "_R")
+      res_temp[, 4] <- stringr::str_split(df_temp$V1[1], "=")[[1]][2]
+      res_temp[, 5] <- stringr::str_split(df_temp$V1[20], "=")[[1]][2]
+      res_temp[, 6] <- stringr::str_split(df_temp$V1[21], "=")[[1]][2]
+      res_temp[, 7] <- stringr::str_split(df_temp$V1[22], "=")[[1]][2]
+      res_temp[, 8] <- stringr::str_split(df_temp$V1[23], "=")[[1]][2]
+      
+      res_temp[1, 9] <- stringr::str_split(df_temp$V1[4], "=")[[1]][2] %>% toupper()
+      res_temp[2, 9] <- stringr::str_split(df_temp$V1[5], "=")[[1]][2] %>% toupper()
+      
+      res_temp[1, 10] <- stringr::str_split(df_temp$V1[2], "=")[[1]][2]
+      res_temp[2, 10] <- stringr::str_split(df_temp$V1[3], "=")[[1]][2]
+      
+      res_temp[1, 11] <- stringr::str_split(df_temp$V1[8], "=")[[1]][2]
+      res_temp[2, 11] <- stringr::str_split(df_temp$V1[9], "=")[[1]][2]
+      
+      res_temp[1, 12] <- stringr::str_split(df_temp$V1[10], "=")[[1]][2]
+      res_temp[2, 12] <- stringr::str_split(df_temp$V1[11], "=")[[1]][2]
+      
+      res_temp[1, 13] <- stringr::str_split(df_temp$V1[12], "=")[[1]][2]
+      res_temp[2, 13] <- stringr::str_split(df_temp$V1[13], "=")[[1]][2]
+      
+      res_temp[1, 14] <- stringr::str_split(df_temp$V1[14], "=")[[1]][2]
+      res_temp[2, 14] <- stringr::str_split(df_temp$V1[15], "=")[[1]][2]
+      
+      res_temp[1, 15] <- stringr::str_split(df_temp$V1[16], "=")[[1]][2]
+      res_temp[2, 15] <- stringr::str_split(df_temp$V1[17], "=")[[1]][2]
+      
+      res_temp[1, 16] <- stringr::str_split(df_temp$V1[18], "=")[[1]][2]
+      res_temp[2, 16] <- stringr::str_split(df_temp$V1[19], "=")[[1]][2]
+      
+      res_final <- rbind(res_final, as.data.frame(res_temp))
+    }
+  }
+  return(res_final)
+}
 # UNCOMMENT AND USE 
 # 
 # usethis::use_package("markdown")

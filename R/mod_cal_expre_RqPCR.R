@@ -37,12 +37,6 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         )
       },
 
-      # 输入技术重复数量
-      numericInput(
-        ns("refgennum"),
-        label = h6("参考基因数量"),
-        value = 2
-      ),
       # 是否输入参考基因
       selectInput(
         ns("inputrefgene"),
@@ -53,13 +47,31 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         ),
         selected = "no"
       ),
+      
 
       # 输入参考基因
-      textInput(
-        ns("refgenename"),
-        label = h6("参考基因名称(英文逗号分隔)"),
-        value = ""
+      conditionalPanel(
+        condition = "input.inputrefgene == 'yes'",
+        ns = ns,
+        textInput(
+          ns("refgenename"),
+          label = h6("参考基因名称(英文逗号分隔)"),
+          value = ""
+        )
       ),
+      
+      
+      # 参考基因数量
+      conditionalPanel(
+        condition = "input.inputrefgene == 'no'",
+        ns = ns,
+        numericInput(
+          ns("refgennum"),
+          label = h6("参考基因数量(≥2)"),
+          value = 2
+        )
+      ),
+
       # 是否用样品进行校正
       selectInput(
         ns("samplecorrection"),
@@ -71,11 +83,16 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         selected = "no"
       ),
       # 输入参考基因
-      textInput(
-        ns("refsample"),
-        label = h6("用于校正的样品"),
-        value = ""
+      conditionalPanel(
+        condition = "input.samplecorrection == 'yes'",
+        ns = ns,
+        textInput(
+          ns("refsample"),
+          label = h6("用于校正的样品"),
+          value = ""
+        )
       ),
+      
       # 提交按钮
       col_12(
         actionButton(
@@ -414,8 +431,8 @@ mod_cal_expre_RqPCR_server <- function(id) {
             RE_sd = sd_aver / min_mean,
             RE_se = se_aver / min_mean
           ) %>%
-          dplyr::select(Treatment, Gene, Cq, eff, bio_rep, RE_expr, RE_sd, RE_se) %>%
-          dplyr::rename(Expression = RE_expr, SD = RE_sd, SE = RE_se) %>%
+          dplyr::select(Treatment, Gene, eff, expression, bio_rep, RE_expr, RE_sd, RE_se) %>%
+          dplyr::rename(Expre4Stat = expression, Expression = RE_expr, SD = RE_sd, SE = RE_se) %>%
           dplyr::mutate(temp = paste0(Treatment, Gene, bio_rep))
 
         r$df_out <- r$df_out[!duplicated(r$df_out$temp), ] %>%
@@ -423,7 +440,7 @@ mod_cal_expre_RqPCR_server <- function(id) {
       }
 
       # 输出结果
-      output$preview <- shiny::renderDataTable(options = list(pageLength = 10), {
+      output$preview <- shiny::renderDataTable(options = list(pageLength = 8), {
         r$df_out
       })
 

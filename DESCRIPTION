@@ -21,6 +21,7 @@ Imports:
     readxl,
     reshape2,
     shiny (>= 1.7.1),
+    sjmisc,
     stringr,
     xlsx
 Encoding: UTF-8

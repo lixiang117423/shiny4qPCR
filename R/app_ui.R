@@ -19,6 +19,7 @@ app_ui <- function(request) {
         h1("shiny4qPCR"),
         c(
           "home" = "首页",
+          "primer" = "引物设计",
           "rever_trans" = "反转录计算",
           #"show_cq" = "展示Cq值",
           "cal_curve" = "计算标曲",
@@ -35,6 +36,11 @@ app_ui <- function(request) {
         
         fluidRow(
           id = "home", mod_home_ui("home")
+        ) %>% tagAppendAttributes(
+          style = "display::nline-block"
+        ),
+        fluidRow(
+          id = "primer", mod_primer_ui("primer")
         ) %>% tagAppendAttributes(
           style = "display::nline-block"
         ),

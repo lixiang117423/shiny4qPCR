@@ -21,6 +21,7 @@ mod_cal_curve_ui <- function(id) {
   tagList(
     col_3(
       h4("Parameter Setting"),
+      
       # 上传数据
       fileInput(
         ns("uploadfile"),
@@ -28,7 +29,6 @@ mod_cal_curve_ui <- function(id) {
         accept = NULL,
         buttonLabel = "View..."
       ),
-
       # 下载示例数据
       downloadLink(ns("dl_demo"),
         label = h6("下载示例数据")

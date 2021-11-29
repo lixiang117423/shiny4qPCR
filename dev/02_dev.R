@@ -31,11 +31,13 @@ usethis::use_package("broom")
 usethis::use_package("readxl")
 usethis::use_package("reshape2")
 usethis::use_package("xlsx")
+usethis::use_package("sjmisc")
 #usethis::use_dev_package("pac4xiang", remote = "github::lixiang117423/pac4xiang")
 
 ## Add modules ----
 ## Create a module infrastructure in R/
 golem::add_module( name = "home" ) # Name of the module
+golem::add_module( name = "primer")
 golem::add_module( name = "rever_trans" ) # Name of the module
 golem::add_module( name = "show_cq" )
 golem::add_module( name = "cal_curve" )
