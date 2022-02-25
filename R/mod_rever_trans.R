@@ -11,7 +11,8 @@ mod_rever_trans_ui <- function(id){
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 上传数据
       fileInput(
         ns("uploadfile"),

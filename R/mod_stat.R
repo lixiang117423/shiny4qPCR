@@ -11,23 +11,24 @@ mod_stat_ui <- function(id) {
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 上传数据
       fileInput(
         ns("uploadfile"),
-        label = h6("上传数据"),
+        label = h6("Upload data"),
         accept = NULL,
         buttonLabel = "View..."
       ),
 
       # 下载示例数据
       downloadLink(ns("dl_demo"),
-        label = h6("下载示例数据")
+        label = h6("Doanload demo data")
       ),
       # sheet index
       selectInput(
         ns("sheetindex"),
-        label = h6("第几个Sheet"),
+        label = h6("Sheet index"),
         choices = list(
           "1" = 1,
           "2" = 2,
@@ -40,37 +41,36 @@ mod_stat_ui <- function(id) {
       # 输入对照处理
       textInput(
         ns("reftreatment"),
-        label = h6("对照处理 (严格区分大小写)"),
+        label = h6("CK"),
         value = "CK"
       ),
       # 选择统计方法
       selectInput(
         ns("method"),
-        label = h6("选择统计方法"),
+        label = h6("Statistical method"),
         choices = list(
-          "t-检验" = "ttest",
-          "方差分析" = "anova"
+          "t-test" = "ttest",
+          "Anova" = "anova"
         ),
         selected = "ttest"
       ),
       # 选择统计检验水平
-      selectInput(
+      numericInput(
         ns("level"),
-        label = h6("选择统计检验水平"),
-        choices = list(
-          "0.95" = 0.95,
-          "0.99" = 0.99
-        ),
-        selected = 0.95
+        label = h6("Level"),
+        min = 0,
+        max = 1,
+        value = 0.95,
+        step = 0.01
       ),
       if (FALSE) {
         # 是否绘图
         selectInput(
           ns('plot'),
-          label = h6("是否绘图"),
+          label = h6("Plot or not"),
           choices = list(
-            "是" = "yes",
-            "否" = "no"
+            "Yes" = "yes",
+            "No" = "no"
           ),
           selected = "是"
         )
@@ -109,7 +109,7 @@ mod_stat_ui <- function(id) {
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-          label = "下载表格"
+          label = "Download Excel"
         ) %>%
           tags$div(align = "center")
       )
@@ -153,7 +153,7 @@ mod_stat_server <- function(id) {
     )
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量差异统计分析示例数据.xlsx",
+      filename = "DemoData.xlsx",
       content = function(file) {
         file.copy("./data/表达量差异统计分析示例数据.xlsx", file)
       }
@@ -194,24 +194,28 @@ mod_stat_server <- function(id) {
       colnames(r$df_out) <- c("Gene", "Treatment", "Pvalue", "Significance")
       
       # 合并输入数据和统计检验结果
-      df_temp <- r$df_out %>% dplyr::mutate(temp = paste0(Gene,Treatment)) %>% 
-        dplyr::select(temp, Significance)
+      df_temp <- r$df_out %>% 
+        dplyr::mutate(temp = paste0(Gene,Treatment)) %>% 
+        dplyr::select(temp, Pvalue, Significance)
       
       r$df_user_exp %>% 
         dplyr::mutate(temp = paste0(Gene,Treatment)) %>% 
         merge(df_temp, by = "temp", all.x = TRUE) %>% 
-        dplyr::group_by(temp) %>% 
-        dplyr::mutate(max = max(Expression)) %>% 
-        dplyr::ungroup() %>% 
-        dplyr::select(-temp,-max) %>% 
-        dplyr::select(Treatment,	Gene,	Cq,	Expression,	N,Mean,	SD,	SE, Significance)-> r$df_out_2
+        #dplyr::group_by(temp) %>% 
+        #dplyr::mutate(max = max(Expression)) %>% 
+        #dplyr::ungroup() %>% 
+        #dplyr::select(-temp,-max) %>% 
+        dplyr::select(-temp) %>%
+        dplyr::select(colnames(r$df_user_exp), "Pvalue", "Significance") -> r$df_out_2 
       
+      colnames(r$df_out_2)[(ncol(r$df_out_2 ) - 1)] = paste0("Pvalue_",input$method)
+      colnames(r$df_out_2)[ncol(r$df_out_2)] = paste0("Significance_",input$method)
       
       r$df_out <- r$df_out_2 %>% 
         dplyr::mutate(temp = paste0(Gene,Treatment))
       
       r$df_out <- r$df_out[!duplicated(r$df_out$temp),] %>% 
-        dplyr::select(Treatment,	Gene,	N,	Mean,	SD,	SE, Significance)
+        dplyr::select(Treatment,	Gene, paste0("Significance_",input$method))
       
         
       # 绘图
@@ -244,7 +248,7 @@ mod_stat_server <- function(id) {
         }
       }
       
-      df_list <- list("平均值+统计结果" = r$df_out, "原始数据+统计结果" = r$df_out_2)
+      df_list <- list("statistical result" = r$df_out, "raw data+results" = r$df_out_2)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
@@ -256,7 +260,7 @@ mod_stat_server <- function(id) {
       # 下载结果
       output$dl_table <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-统计检验结果.xlsx")
+          paste0(Sys.Date(), "-results.xlsx")
         },
         content = function(file) {
           openxlsx::write.xlsx(df_list, file)

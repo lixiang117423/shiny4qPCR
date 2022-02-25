@@ -20,76 +20,69 @@ mod_cal_curve_ui <- function(id) {
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       
       # 上传数据
       fileInput(
         ns("uploadfile"),
-        label = h6("上传数据"),
+        label = h6("Upload data"),
         accept = NULL,
         buttonLabel = "View..."
       ),
       # 下载示例数据
       downloadLink(ns("dl_demo"),
-        label = h6("下载示例数据")
+        label = h6("Download demo data")
+      ),
+      # 稀释倍数
+      numericInput(
+        ns("dilu"),
+        label = h6("Dilution ratio"), # 稀释倍数
+        value = 4
       ),
       # 是否剔除空值
       selectInput(
         ns("dropNA"),
-        label = h6("是否剔除空值"),
+        label = h6("Drop NA"), # 剔除空值
         choices = list(
-          "是" = "TRUE",
-          "否" = "FALSE"
+          "Yes" = "TRUE",
+          "No" = "FALSE"
         ),
         selected = "TRUE"
       ),
       # 空值填充方法
       selectInput(
         ns("fillNA"),
-        label = h6("空值填充方法"),
+        label = h6("Fill NA by"),
         choices = list(
-          "均值填充" = "mean",
-          "最大值填充" = "max"
+          "Mean value" = "mean",
+          "Max value" = "max"
         ),
         selected = "mean"
       ),
 
       # 起始行
-      selectInput(
+      numericInput(
         ns("start"),
-        label = h6("起始行"),
-        choices = list(
-          "A" = "A",
-          "B" = "B",
-          "C" = "C",
-          "D" = "D",
-          "E" = "E",
-          "F" = "F",
-          "G" = "G",
-          "H" = "H"
-        ),
-        selected = "B"
+        label = h6("Start"),
+        min = 1,
+        max = 10^10,
+        step = 1,
+        value = 4096
       ),
       # 终止行
-      selectInput(
+      numericInput(
         ns("end"),
-        label = h6("终止行"),
-        choices = list(
-          "A" = "A",
-          "B" = "B",
-          "C" = "C",
-          "D" = "D",
-          "E" = "E",
-          "F" = "F",
-          "G" = "G",
-          "H" = "H"
-        ),
-        selected = "G"
+        label = h6("End"),
+        min = 1,
+        max = 10^10,
+        step = 1,
+        value = 4,
       ),
       # 图片格式
       selectInput(
         ns("figtype"),
-        label = h6("图片格式"),
+        label = h6("Figure type"),
         choices = list(
           "PDF" = "pdf",
           "eps" = "eps",
@@ -111,14 +104,14 @@ mod_cal_curve_ui <- function(id) {
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-          label = "下载表格"
+          label = "Download Excel"
         ) %>%
           tags$div(align = "center")
       ),
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_fig"),
-          label = "下载图片"
+          label = "Download Figure"
         ) %>%
           tags$div(align = "center")
       )
@@ -175,7 +168,7 @@ mod_cal_curve_server <- function(id) {
 
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "标曲计算示例数据.xlsx",
+      filename = "DemoData4CalculateStandardCurve.xlsx",
       content = function(file) {
         file.copy("./data/标曲计算示例数据.xlsx", file)
       }
@@ -209,6 +202,7 @@ mod_cal_curve_server <- function(id) {
         reshape2::melt(id.vars = 1) %>%
         dplyr::mutate(Position = paste0(N, variable)) %>%
         dplyr::rename(Conc = value) %>%
+        dplyr::mutate(Conc = log(Conc, base = input$dilu)) %>% 
         dplyr::select(Position, Conc)
 
       # 设置位置矩阵
@@ -218,11 +212,11 @@ mod_cal_curve_server <- function(id) {
       )
 
       # 设置起终点
-      start <- df_loc %>% dplyr::filter(P == input$start)
-      start <- start$loc
+      #start <- df_loc %>% dplyr::filter(Conc < log(input$start, base = input$dilu))
+      #start <- start$loc
 
-      end <- df_loc %>% dplyr::filter(P == input$end)
-      end <- end$loc
+      #end <- df_loc %>% dplyr::filter(Conc > log(input$end, base = input$dilu))
+      #end <- end$loc
 
 
       df <- merge(r$df_user_cq, r$df_user_design, by = "Position") %>%
@@ -292,7 +286,9 @@ mod_cal_curve_server <- function(id) {
             max = max(Cq), min = min(Cq)
           ) %>%
           dplyr::ungroup() %>%
-          dplyr::filter(loc >= start & loc <= end)
+          #dplyr::filter(loc >= start & loc <= end)
+          dplyr::filter(Conc <= log(input$start, base = input$dilu)) %>% 
+          dplyr::filter(Conc >= log(input$end, base = input$dilu))
       } else {
         df.final <- df %>%
           dplyr::filter(Cq != "-") %>%
@@ -303,8 +299,10 @@ mod_cal_curve_server <- function(id) {
             max = max(Cq), min = min(Cq)
           ) %>%
           dplyr::ungroup() %>%
-          dplyr::filter(loc >= start & loc <= end)
-      }
+          #dplyr::filter(loc >= start & loc <= end) %>% 
+          dplyr::filter(Conc <= log(input$start, base = input$dilu)) %>% 
+          dplyr::filter(Conc >= log(input$end, base = input$dilu))
+          }
 
       # 构建模型
       fit.res <- NULL
@@ -313,13 +311,13 @@ mod_cal_curve_server <- function(id) {
         df.sub <- df.final %>%
           dplyr::filter(Gene == i)
 
-        fit <- lm(Conc ~ mean, data = df.sub)
+        fit <- lm(mean  ~  Conc, data = df.sub)
         intercept <- fit[["coefficients"]][["(Intercept)"]] %>%
           round(2)
-        slope <- fit[["coefficients"]][["mean"]] %>%
+        slope <- fit[["coefficients"]][["Conc"]] %>%
           round(2)
-
-        formula <- paste0("RC = ", slope, "xCq", " + ", intercept)
+        
+        formula <- paste0("y = ", slope, "*x", " + ", intercept)
 
         r.2 <- broom::glance(fit)[1, 1] %>%
           round(4) %>%
@@ -344,11 +342,14 @@ mod_cal_curve_server <- function(id) {
         fit.res <- rbind(fit.res, df.temp)
       }
 
-      r$df_out <- fit.res
+      r$df_out <- fit.res %>% 
+        dplyr::mutate(Eff = input$dilu^((-1)/Slope),
+                      Eff.range = "[1.90, 2.05]") %>% 
+        dplyr::select(1:8,10:11,9)
 
       # 绘图
       # 绘图
-      r$plot_out <- ggplot2::ggplot(df.final, ggplot2::aes(mean, Conc, fill = Gene)) +
+      r$plot_out <- ggplot2::ggplot(df.final, ggplot2::aes(Conc, mean, fill = Gene)) +
         ggplot2::geom_smooth(
           formula = y ~ x,
           method = "lm",
@@ -357,9 +358,9 @@ mod_cal_curve_server <- function(id) {
         ggplot2::geom_point() +
         ggplot2::facet_wrap(. ~ Gene, ncol = 2) +
         ggpmisc::stat_poly_eq(ggplot2::aes(label = paste(..eq.label..,
-          ..rr.label..,
-          ..p.value.label..,
-          sep = "~~~~"
+                                                         ..rr.label..,
+                                                         ..p.value.label..,
+                                                         sep = "~~~~"
         )),
         formula = y ~ x,
         parse = T,
@@ -368,28 +369,28 @@ mod_cal_curve_server <- function(id) {
         label.x = c(0.05),
         label.y = c(0.03)
         ) +
-        ggplot2::labs(y = "Relative.Conc (log2)", x = "Cq") +
+        ggplot2::labs(x = "Relative.Conc", y = "Cq") +
         ggplot2::scale_y_continuous(breaks = round(seq(
-          min(df.final$Conc),
-          max(df.final$Conc), 1
-        ), 2)) +
-        ggplot2::scale_x_continuous(breaks = round(seq(
           min(df.final$mean),
-          max(df.final$mean) + 1, 1
-        ), 1)) +
+          max(df.final$mean), 5
+        ), 0)) +
+        ggplot2::scale_x_continuous(breaks = round(seq(
+          min(df.final$Conc),
+          max(df.final$Conc) + 1, 1
+        ), 0)) +
         ggplot2::theme_bw() +
         ggplot2::theme(legend.position = "none")
 
       # 展示结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6),{
         r$df_out %>%
-          dplyr::select(1:6)
+          dplyr::select(1:6,9:10)
       })
 
       # 下载结果
       output$dl_table <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-标曲.xlsx")
+          paste0(Sys.Date(),input$uploadfile$dataname, "-Standard_Curves.xlsx")
         },
         content = function(file) {
           xlsx::write.xlsx(r$df_out,
@@ -403,7 +404,7 @@ mod_cal_curve_server <- function(id) {
       # 下载图片
       output$dl_fig <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-Standard_Curves.", input$figtype)
+          paste0(Sys.Date(),input$uploadfile$dataname, "-Standard_Curves.", input$figtype)
         },
         content = function(file) {
           ggplot2::ggsave(file, r$plot_out, device = input$figtype, width = 12, height = 8)

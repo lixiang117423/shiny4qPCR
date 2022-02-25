@@ -11,27 +11,28 @@ mod_cal_expre_RqPCR_ui <- function(id) {
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 上传数据
       fileInput(
         ns("uploadfile"),
-        label = h6("上传数据"),
+        label = h6("Upload data"),
         accept = NULL,
         buttonLabel = "View..."
       ),
 
       # 下载示例数据
       downloadLink(ns("dl_demo"),
-        label = h6("下载示例数据")
+        label = h6("Download demo data")
       ),
       if (FALSE) {
         # 是否剔除空值
         selectInput(
           ns("dropNA"),
-          label = h6("是否剔除空值"),
+          label = h6("Drop NA"),
           choices = list(
-            "是" = "TRUE",
-            "否" = "FALSE"
+            "Yes" = "TRUE",
+            "No" = "FALSE"
           ),
           selected = "TRUE"
         )
@@ -40,10 +41,10 @@ mod_cal_expre_RqPCR_ui <- function(id) {
       # 是否输入参考基因
       selectInput(
         ns("inputrefgene"),
-        label = h6("是否指定参考基因"),
+        label = h6("Input reference gene"),
         choices = list(
-          "是" = "yes",
-          "否" = "no"
+          "Yes" = "yes",
+          "No" = "no"
         ),
         selected = "no"
       ),
@@ -55,7 +56,7 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         ns = ns,
         textInput(
           ns("refgenename"),
-          label = h6("参考基因名称(英文逗号分隔)"),
+          label = h6("Reference gene(separated by commas)"),
           value = ""
         )
       ),
@@ -67,7 +68,7 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         ns = ns,
         numericInput(
           ns("refgennum"),
-          label = h6("参考基因数量(≥2)"),
+          label = h6("Reference gene numbers(≥2)"),
           value = 2
         )
       ),
@@ -75,10 +76,10 @@ mod_cal_expre_RqPCR_ui <- function(id) {
       # 是否用样品进行校正
       selectInput(
         ns("samplecorrection"),
-        label = h6("是否用样品校正表达量"),
+        label = h6("Corrected by sample"),
         choices = list(
-          "是" = "yes",
-          "否" = "no"
+          "Yes" = "yes",
+          "No" = "no"
         ),
         selected = "no"
       ),
@@ -88,7 +89,7 @@ mod_cal_expre_RqPCR_ui <- function(id) {
         ns = ns,
         textInput(
           ns("refsample"),
-          label = h6("用于校正的样品"),
+          label = h6("Sample for correcting"),
           value = ""
         )
       ),
@@ -105,7 +106,7 @@ mod_cal_expre_RqPCR_ui <- function(id) {
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-          label = "下载表格"
+          label = "Download Excel"
         ) %>%
           tags$div(align = "center")
       )
@@ -155,7 +156,7 @@ mod_cal_expre_RqPCR_server <- function(id) {
 
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量计算示例数据_RqPCR法.xlsx",
+      filename = "DemoData_RqPCR.xlsx",
       content = function(file) {
         file.copy("./data/表达量计算示例数据_RqPCR法.xlsx", file)
       }
@@ -263,15 +264,19 @@ mod_cal_expre_RqPCR_server <- function(id) {
       ###############################################
       ###############  计算参考基因
 
-
       if (input$inputrefgene == "yes") {
-        ref.gene <- c(input$refgenename)
+        ref.gene <- c()
+        
+        ref.gene.input = stringr::str_split(input$refgenename, ",")[[1]]
+        for (i in 1:length(ref.gene.input)) {
+          ref.gene <- c(ref.gene, ref.gene.input[i])
+        }
       } else {
         df.ref <- df_expre %>%
           dplyr::select(Treatment, Gene, Cq, bio_rep, rep) %>%
-          dplyr::group_by(Treatment, Gene, bio_rep, rep) %>%
+          #dplyr::group_by(Treatment, Gene, bio_rep, rep) %>%
           dplyr::mutate(
-            Treatment = paste0(Treatment, rep)
+            Treatment = paste0(Treatment, bio_rep, rep)
           ) %>%
           tidyr::spread(key = Gene, value = Cq)
 
@@ -407,8 +412,8 @@ mod_cal_expre_RqPCR_server <- function(id) {
             RE_sd = sd_aver / min_temp,
             RE_se = se_aver / min_temp
           ) %>%
-          dplyr::select(Treatment, Gene, Cq, eff, bio_rep, RE_expr, RE_sd, RE_se) %>%
-          dplyr::rename(Expression = RE_expr, SD = RE_sd, SE = RE_se) %>%
+          dplyr::select(Treatment, Gene, eff, expression, bio_rep, RE_expr, RE_sd, RE_se) %>%
+          dplyr::rename(Expre4Stat = expression, Expression = RE_expr, SD = RE_sd, SE = RE_se) %>%
           dplyr::mutate(temp = paste0(Treatment, Gene, bio_rep))
 
         r$df_out <- r$df_out[!duplicated(r$df_out$temp), ] %>%
@@ -447,7 +452,7 @@ mod_cal_expre_RqPCR_server <- function(id) {
       # 下载结果
       output$dl_table <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-表达量(RqPCR).xlsx")
+          paste0(Sys.Date(), "-expression(RqPCR).xlsx")
         },
         content = function(file) {
           openxlsx::write.xlsx(r$df_out, file)

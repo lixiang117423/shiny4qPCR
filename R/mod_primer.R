@@ -11,14 +11,15 @@ mod_primer_ui <- function(id){
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 单条序列还是多条序列
       selectInput(
         ns("seqnum"),
-        label = h6("是否单条序列"),
+        label = h6("Sequence number"),
         choices = list(
-          "单条序列" = "1",
-          "多条序列" = "2"
+          "1" = "1",
+          ">1" = "2"
         ),
         selected = "1"
       ),
@@ -29,7 +30,7 @@ mod_primer_ui <- function(id){
         ns = ns,
         textInput(
           ns("seqinput"),
-          label = h6("输入序列"),
+          label = h6("Input Sequence"),
           value = ""
         )
       ),
@@ -40,7 +41,7 @@ mod_primer_ui <- function(id){
         ns = ns,
         fileInput(
           ns("uploadfile"),
-          label = h6("上传数据"),
+          label = h6("Upload Sequences"),
           accept = NULL,
           buttonLabel = "View..."
         )
@@ -49,14 +50,14 @@ mod_primer_ui <- function(id){
       # 引物长度
       numericInput(
         ns("length"),
-        label = h6("引物最佳长度"),
+        label = h6("Optimum length"),
         value = 18
       ),
       
       # 引物长度范围
       sliderInput(
         ns("length_room"),
-        label = h6("引物长度范围"),
+        label = h6("Length range"),
         min = 10,
         max = 50,
         value = c(18,22)
@@ -65,7 +66,7 @@ mod_primer_ui <- function(id){
       # 引物产物质量范围
       sliderInput(
         ns("product"),
-        label = h6("引物产物大小范围"),
+        label = h6("Product size range"),
         min = 50,
         max = 200,
         value = c(75,150)
@@ -83,7 +84,7 @@ mod_primer_ui <- function(id){
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-                       label = "下载表格"
+                       label = "Doanload Excel"
         ) %>%
           tags$div(align = "center")
       ),
@@ -187,7 +188,7 @@ mod_primer_server <- function(id){
         
         # 下载示例数据
         output$dl_demo <- downloadHandler(
-          filename = "引物设计示例数据.fa",
+          filename = "DemoData.fa",
           content = function(file) {
             file.copy("./data/引物设计示例数据.fa", file)
           }
@@ -250,7 +251,7 @@ mod_primer_server <- function(id){
       # 下载结果
       output$dl_table <- downloadHandler(
         filename = function() {
-          paste0(Sys.Date(), "-引物设计结果.xlsx")
+          paste0(Sys.Date(), "-results.xlsx")
         },
         content = function(file) {
           openxlsx::write.xlsx(r$df_out, file)

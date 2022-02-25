@@ -18,15 +18,15 @@ app_ui <- function(request) {
       nav_(
         h1("shiny4qPCR"),
         c(
-          "home" = "首页",
-          "primer" = "引物设计",
-          "rever_trans" = "反转录计算",
+          "home" = "Home",
+          "primer" = "Primer Design",
+          #"rever_trans" = "反转录计算",
           #"show_cq" = "展示Cq值",
-          "cal_curve" = "计算标曲",
-          "cal_expre" = "计算表达量(标曲法)",
-          "cal_expre_ddct" = "计算表达量(2^-ΔΔCt法)",
-          "cal_expre_RqPCR" = "计算表达量(RqPCR法)",
-          "stat" = "差异表达统计",
+          "cal_curve" = "Curve",
+          "cal_expre" = "MCurve",
+          "cal_expre_ddct" = "2^-ΔΔCt",
+          "cal_expre_RqPCR" = "RqPCR",
+          "stat" = "Statistical",
           #"visualization" = "数据可视化",
           "about" = "About"
         )
@@ -44,11 +44,11 @@ app_ui <- function(request) {
         ) %>% tagAppendAttributes(
           style = "display::nline-block"
         ),
-        fluidRow(
-          id = "rever_trans", mod_rever_trans_ui("rever_trans")
-        ) %>% tagAppendAttributes(
-          style = "display::nline-block"
-        ),
+        #fluidRow(
+        #id = "rever_trans", mod_rever_trans_ui("rever_trans")
+        #) %>% tagAppendAttributes(
+        #style = "display::nline-block"
+        #),
         fluidRow(
           id = "show_cq", mod_show_cq_ui("show_cq")
         ) %>% tagAppendAttributes(

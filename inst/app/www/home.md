@@ -12,31 +12,6 @@
 	      font-size: 20px;
 	}
 	</style>
-    <h2 style="text-align:center; text-justify:inter-ideograph;font-size:30px;">一站式qPCR数据处理工具</h2>
-    <p style="text-align:center; text-justify:inter-ideograph;font-size:20px;">本网页工具主要用于解决qPCR数据的处理，包括引物设计、反转录计算、标曲计算、表达量计算、统计分析等. </p>
+    <p style="text-align:justify; text-justify:inter-ideograph;font-size:20px;">shiny4qPCR is a web-based tool for processing qPCR data, including primer design, standard curve calculation, expression level calculation, and statistical analysis. The tool is user-friendly, especially for users who are not familiar with qPCR. shiny4qPCR may become an important tool for processing qPCR data. </p>
     <HR>
-    <h2 style="text-align:center; text-justify:inter-ideograph;font-size:30px;">各部分教程链接</h2>
-    <div id="intro">
-	      <a href="https://blog.web4xiang.top/posts/primer01/">引物设计</a>
-	    </div>
-	<div id="intro">
-	      <a href="http://blog.web4xiang.top/posts/56899ght/">反转录计算</a>
-	    </div>
-	<div id="intro">
-	      <a href="http://blog.web4xiang.top/posts/8595ghfy/">标曲计算</a>
-	    </div>
-	<div id="intro">
-	      <a href="http://blog.web4xiang.top/posts/158798th/">表达量计算（标曲法）</a>
-	    </div>
-	<div id="intro">
-        <a href="http://blog.web4xiang.top/posts/8978tygh/">表达量计算（2<sup>-ΔΔCt</sup>法）</a>
-	    </div>
-	<div id="intro">
-	      <a href="https://blog.web4xiang.top/posts/RqPCR001/">表达量计算（RqPCR法）</a>
-	    </div>
-	<div id="intro">
-	      <a href="http://blog.web4xiang.top/posts/yt5987gh/">差异表达统计</a>
-	    </div>
-
 </div>
-

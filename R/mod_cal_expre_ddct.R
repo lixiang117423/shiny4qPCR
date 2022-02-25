@@ -11,49 +11,50 @@ mod_cal_expre_ddct_ui <- function(id) {
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 上传数据
       fileInput(
         ns("uploadfile"),
-        label = h6("上传数据"),
+        label = h6("Upload data"),
         accept = NULL,
         buttonLabel = "View..."
       ),
 
       # 下载示例数据
       downloadLink(ns("dl_demo"),
-        label = h6("下载示例数据")
+        label = h6("Download demo data")
       ),
       # 是否剔除空值
       selectInput(
         ns("dropNA"),
-        label = h6("是否剔除空值"),
+        label = h6("Drop NA"),
         choices = list(
-          "是" = "TRUE",
-          "否" = "FALSE"
+          "Yes" = "TRUE",
+          "No" = "FALSE"
         ),
         selected = "TRUE"
       ),
       # 空值填充方法
       selectInput(
         ns("fillNA"),
-        label = h6("空值填充方法"),
+        label = h6("Fill NA by"),
         choices = list(
-          "均值填充" = "mean",
-          "最大值填充" = "max"
+          "Mean value" = "mean",
+          "Max value" = "max"
         ),
         selected = "mean"
       ),
       # 输入对照处理
       textInput(
         ns("reftreatment"),
-        label = h6("对照处理 (严格区分大小写)"),
+        label = h6("CK"),
         value = "CK"
       ),
       # 输入内参基因
       textInput(
         ns("refgene"),
-        label = h6("内参基因 (严格区分大小写)"),
+        label = h6("Reference gene"),
         value = "OsUBQ"
       ),
       # 提交按钮
@@ -68,7 +69,7 @@ mod_cal_expre_ddct_ui <- function(id) {
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-          label = "下载表格"
+          label = "Download Excel"
         ) %>%
           tags$div(align = "center")
       )
@@ -121,7 +122,7 @@ mod_cal_expre_ddct_server <- function(id) {
     )
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量计算示例数据_2-ΔΔCt法.xlsx",
+      filename = "DemoData_2-ΔΔCt.xlsx",
       content = function(file) {
         file.copy("./data/表达量计算示例数据_2-ΔΔCt法.xlsx", file)
       }
@@ -260,7 +261,7 @@ mod_cal_expre_ddct_server <- function(id) {
       r$df_out_2 <- r$df_out_2[!duplicated(r$df_out_2$temp),] %>% 
         dplyr::select(-Cq, -temp)
       
-      r$df_list <- list("平均值表达量" = r$df_out_2, "原始表达量" = r$df_out)
+      r$df_list <- list("Mean data" = r$df_out_2, "Raw data" = r$df_out)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
@@ -271,7 +272,7 @@ mod_cal_expre_ddct_server <- function(id) {
     # 下载结果
     output$dl_table <- downloadHandler(
       filename = function() {
-        paste0(Sys.Date(), "-表达量(2^-ΔΔCt法).xlsx")
+        paste0(Sys.Date(), "-Expression(2^-ΔΔCt).xlsx")
       },
       content = function(file) {
         openxlsx::write.xlsx(r$df_list, file)

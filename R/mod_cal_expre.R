@@ -11,53 +11,54 @@ mod_cal_expre_ui <- function(id) {
   ns <- NS(id)
   tagList(
     col_3(
-      h4("Parameter Setting"),
+      h4("Parameter Setting",align="center"),
+      HTML("<hr style='background-color: #282828'>"),
       # 上传数据
       fileInput(
         ns("uploadfile"),
-        label = h6("上传数据"),
+        label = h6("Upload data"),
         accept = NULL,
         buttonLabel = "View..."
       ),
 
       # 下载示例数据
       downloadLink(ns("dl_demo"),
-        label = h6("下载示例数据")
+        label = h6("Downaload demo data")
       ),
       # 是否剔除空值
       selectInput(
         ns("dropNA"),
-        label = h6("是否剔除空值"),
+        label = h6("Drop NA"),
         choices = list(
-          "是" = "TRUE",
-          "否" = "FALSE"
+          "Yes" = "TRUE",
+          "No" = "FALSE"
         ),
         selected = "TRUE"
       ),
       # 空值填充方法
       selectInput(
         ns("fillNA"),
-        label = h6("空值填充方法"),
+        label = h6("Fill NAA by"),
         choices = list(
-          "均值填充" = "mean",
-          "最大值填充" = "max"
+          "Mean value" = "mean",
+          "Max value" = "max"
         ),
         selected = "mean"
       ),
       # 是否用内参进行校正
       selectInput(
         ns("correction"),
-        label = h6("是否用内参进行校正"),
+        label = h6("Corrected by reference gene"),
         choices = list(
-          "是" = "yes",
-          "否" = "no"
+          "Yes" = "yes",
+          "No" = "no"
         ),
         selected = "yes"
       ),
       # 输入内参基因
       textInput(
         ns("refgene"),
-        label = h6("内参基因名称 (严格区分大小写)"),
+        label = h6("Reference gene"),
         value = "OsUBQ"
       ),
       # 提交按钮
@@ -72,7 +73,7 @@ mod_cal_expre_ui <- function(id) {
       HTML("&nbsp;"),
       col_12(
         downloadButton(ns("dl_table"),
-          label = "下载表格"
+          label = "Download Excel"
         ) %>%
           tags$div(align = "center")
       )
@@ -127,7 +128,7 @@ mod_cal_expre_server <- function(id) {
 
     # 下载示例数据
     output$dl_demo <- downloadHandler(
-      filename = "表达量计算示例数据_标曲法.xlsx",
+      filename = "DemoData_StandardCurve.xlsx",
       content = function(file) {
         file.copy("./data/表达量计算示例数据_标曲法.xlsx", file)
       }
@@ -145,7 +146,9 @@ mod_cal_expre_server <- function(id) {
           P = stringr::str_sub(Position, 1, 1),
           N = as.numeric(stringr::str_sub(Position, 2, nchar(Position)))
         ) %>%
-        dplyr::select(N, P, Cq, Position, Batch)
+        dplyr::select(N, P, Cq, Position, Batch) %>% 
+        dplyr::mutate(temp1 = paste0(Position,Batch)) %>% 
+        dplyr::select(N, P, temp1, Cq, Batch)
 
       # 读入处理矩阵
       r$df_user_design_treat <- readxl::read_excel(
@@ -155,7 +158,9 @@ mod_cal_expre_server <- function(id) {
         reshape2::melt(id.vars = 1:2) %>%
         dplyr::mutate(Position = paste0(N, variable)) %>%
         dplyr::rename(Treatment = value) %>%
-        dplyr::select(Position, Treatment,Batch)
+        dplyr::select(Position, Treatment,Batch) %>% 
+        dplyr::mutate(temp1 = paste0(Position,Batch)) %>% 
+        dplyr::select(temp1, Treatment, Batch)
 
       # 读入基因矩阵
       r$df_user_design_gene <- readxl::read_excel(
@@ -165,7 +170,9 @@ mod_cal_expre_server <- function(id) {
         reshape2::melt(id.vars = 1:2) %>%
         dplyr::mutate(Position = paste0(N, variable)) %>%
         dplyr::rename(Gene = value) %>%
-        dplyr::select(Position, Gene,Batch)
+        dplyr::select(Position, Gene,Batch) %>% 
+        dplyr::mutate(temp1 = paste0(Position,Batch)) %>% 
+        dplyr::select(temp1, Gene, Batch)
 
       # 读入标曲
       r$df_user_sd <- readxl::read_excel(
@@ -174,96 +181,90 @@ mod_cal_expre_server <- function(id) {
       )
       
       
-      # 根据batch分批计算
-      for (i in unique(r$df_user_exp$Batch)) {
-        df_user_exp = r$df_user_exp %>% dplyr::filter(Batch == i)
-        df_user_design_treat = r$df_user_design_treat %>% dplyr::filter(Batch == i)
-        df_user_design_gene = r$df_user_design_gene %>% dplyr::filter(Batch == i)
-        
-        # 计算表达量
-        # 数据处理
-        df <- merge(r$df_user_exp, r$df_user_design_treat, by = "Position") %>%
-          merge(r$df_user_design_gene, by = "Position") %>%
-          dplyr::mutate(group = paste0(Gene, "-", Treatment))
-        
-        # 填充空值
-        df %>% dplyr::mutate(group = paste0(Treatment, Gene, Batch)) -> df
-        
-        df_new <- NULL
-        
-        for (i in unique(df$group)) {
-          df_temp <- df %>%
-            dplyr::filter(group == i) %>%
-            fill_NA(value = "Cq", fill.by = input$fillNA)
-          df_new <- rbind(df_new, df_temp)
-        }
-        
-        df <- df_new
-        
-        df.3 <- df %>%
-          dplyr::filter(Cq == "-") %>%
-          dplyr::mutate(temp = paste0(Gene, N, P))
-        
-        df.4 <- df %>%
-          dplyr::filter(Cq != "-") %>%
-          merge(r$df_user_sd, by = "Gene") %>%
-          dplyr::mutate(out = "")
-        
-        for (i in 1:nrow(df.4)) {
-          if (df.4$Cq[i] > df.4$max[i] | df.4$Cq[i] < df.4$min[i]) {
-            df.4$out[i] <- 1
-          } else {
-            df.4$out[i] <- 0
-          }
-        }
-        
-        df.5 <- df.4 %>%
-          dplyr::filter(out == 0) %>%
-          dplyr::mutate(Cq = as.numeric(Cq)) %>%
-          dplyr::group_by(group) %>%
-          dplyr::mutate(mean = mean(Cq)) %>%
-          dplyr::ungroup()
-        
-        df.6 <- df.4 %>%
-          dplyr::filter(out == 1) %>%
-          dplyr::mutate(temp = paste0(Gene, N, P))
-        
-        # 填充缺失值
-        df.5.1 <- df.5 %>% dplyr::filter(group %in% unique(df.3$group))
-        df.5.1 <- df.5.1[!duplicated(df.5.1$group), ]
-        
-        df.3 <- merge(df.3[, c("group", "temp")], df.5.1, by = "group")
-        df.3 <- df.3[!duplicated(df.3$temp), ] %>%
-          dplyr::mutate(Cq = mean) %>%
-          dplyr::select(-temp) %>%
-          dplyr::select(colnames(df.5))
-        
-        
-        df.5.1 <- df.5 %>% dplyr::filter(group %in% unique(df.6$group))
-        df.5.1 <- df.5.1[!duplicated(df.5.1$group), ]
-        
-        df.6 <- merge(df.6[, c("group", "temp")], df.5.1, by = "group")
-        
-        df.6 <- df.6[!duplicated(df.6$temp), ] %>%
-          dplyr::mutate(Cq = mean) %>%
-          dplyr::select(-temp) %>%
-          dplyr::select(colnames(df.5))
-        
-        exp.all <- rbind(df.3, df.5, df.6) %>%
-          dplyr::mutate(group = paste0(Treatment, Gene)) %>%
-          dplyr::group_by(group) %>%
-          dplyr::mutate(
-            N = dplyr::n(),
-            Mean = mean(Cq),
-            SD = sd(Cq),
-            SE = SD / sqrt(N),
-            Expression = Cq * Slope + Intercept
-          ) %>%
-          dplyr::ungroup() %>%
-          dplyr::select(Treatment, Gene, Cq, N, Mean, SD, SE, Formula, R2, P.value, Expression, Date)
-        # 合并计算结果
-        r$df_out <- rbind(r$df_out, exp.all)
+      # 数据处理
+      df <- merge(r$df_user_exp, r$df_user_design_treat, by = "temp1") %>%
+        merge(r$df_user_design_gene, by = "temp1")
+      
+      # 填充空值
+      df %>% dplyr::mutate(group = paste0(Treatment, Gene)) -> df
+      
+      df_new <- NULL
+      
+      for (i in unique(df$group)) {
+        df_temp <- df %>%
+          dplyr::filter(group == i) %>%
+          fill_NA(value = "Cq", fill.by = input$fillNA)
+        df_new <- rbind(df_new, df_temp)
       }
+      
+      df <- df_new
+      
+      df.3 <- df %>%
+        dplyr::filter(Cq == "-") %>%
+        dplyr::mutate(temp = paste0(Gene, N, P))
+      
+      df.4 <- df %>%
+        dplyr::filter(Cq != "-") %>%
+        merge(r$df_user_sd, by = "Gene") %>%
+        dplyr::mutate(out = "")
+      
+      for (i in 1:nrow(df.4)) {
+        if (df.4$Cq[i] > df.4$max[i] | df.4$Cq[i] < df.4$min[i]) {
+          df.4$out[i] <- 1
+        } else {
+          df.4$out[i] <- 0
+        }
+      }
+      
+      df.5 <- df.4 %>%
+        dplyr::filter(out == 0) %>%
+        dplyr::mutate(Cq = as.numeric(Cq)) %>%
+        dplyr::group_by(group) %>%
+        dplyr::mutate(mean = mean(Cq)) %>%
+        dplyr::ungroup()
+      
+      df.6 <- df.4 %>%
+        dplyr::filter(out == 1) %>%
+        dplyr::mutate(temp = paste0(Gene, N, P))
+      
+      # 填充缺失值
+      df.5.1 <- df.5 %>% dplyr::filter(group %in% unique(df.3$group))
+      df.5.1 <- df.5.1[!duplicated(df.5.1$group), ]
+      
+      df.3 <- merge(df.3[, c("group", "temp")], df.5.1, by = "group")
+      df.3 <- df.3[!duplicated(df.3$temp), ] %>%
+        dplyr::mutate(Cq = mean) %>%
+        dplyr::select(-temp) %>%
+        dplyr::select(colnames(df.5))
+      
+      
+      df.5.1 <- df.5 %>% dplyr::filter(group %in% unique(df.6$group))
+      df.5.1 <- df.5.1[!duplicated(df.5.1$group), ]
+      
+      df.6 <- merge(df.6[, c("group", "temp")], df.5.1, by = "group")
+      
+      df.6 <- df.6[!duplicated(df.6$temp), ] %>%
+        dplyr::mutate(Cq = mean) %>%
+        dplyr::select(-temp) %>%
+        dplyr::select(colnames(df.5))
+      
+      exp.all <- rbind(df.3, df.5, df.6) %>%
+        dplyr::mutate(group = paste0(Treatment, Gene)) %>%
+        dplyr::group_by(group) %>%
+        dplyr::mutate(
+          N = dplyr::n(),
+          #Mean = mean(Cq),
+          #SD = sd(Cq),
+          #SE = SD / sqrt(N),
+          Expression = (Cq - Intercept)/Slope,
+          Mean = mean(Expression),
+          SD = sd(Expression),
+          SE = SD / sqrt(N),
+        ) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(Treatment, Gene, Cq, N, Mean, SD, SE, Formula, R2, P.value, Expression, Date)
+      # 合并计算结果
+      r$df_out <- exp.all
       
       # 用内参进行校正
       if (input$correction == "yes") {
@@ -315,7 +316,7 @@ mod_cal_expre_server <- function(id) {
         dplyr::select(-temp)
       
       
-      r$df_list <- list("平均值表达量" = r$df_out_2, "原始表达量" = r$df_out)
+      r$df_list <- list("Mean data" = r$df_out_2, "Raw data" = r$df_out)
 
       # 输出结果
       output$preview <- shiny::renderDataTable(options = list(pageLength = 6), {
@@ -326,7 +327,7 @@ mod_cal_expre_server <- function(id) {
     # 下载结果
     output$dl_table <- downloadHandler(
       filename = function() {
-        paste0(Sys.Date(), "-表达量(标曲法).xlsx")
+        paste0(Sys.Date(), "-expression.xlsx")
       },
       content = function(file) {
         openxlsx::write.xlsx(r$df_list, file)
